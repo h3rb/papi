@@ -13,11 +13,7 @@ define('AUTH_TIMEOUT',1000*60*30);  // in millis
 define('timeout', 60*30);       // number of seconds until cookie expires
 
 
-
-// W5T-PARSEREP API
-
 /*
- * These values are from ye olde Parse API.
  * Without these headers, we diss incoming sockets.
  */
 
