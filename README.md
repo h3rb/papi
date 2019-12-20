@@ -6,7 +6,7 @@ Page: http://github.com/h3rb/page
 
 _Uses_
 
-You can use Papi to build a secure API back-end for mobile and web applications.  It has a light footprint and the strength of simple, effective ACLs.  It's sole purpose is to police access to data, provide the data to an external web application or mobile application, and monitor sessions and login information. 
+You can use Papi to build a secure API back-end for mobile and web applications.  It has a light footprint and the strength of simple, effective ACLs.  Its sole purpose is to police access to data, provide the data to an external web application or mobile application, and monitor sessions and login information. 
 
 You could build a site mainly as static pages / javascript on S3, and then use this as a scalable backend in an auto-load balancing group.
 
