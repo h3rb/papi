@@ -5,13 +5,123 @@ if ( !function_exists('plog') ) {
   global $plog_level;
   if ( !isset($plog_level) ) if ( !is_null($gv=g('plog_level')) ) $plog_level=$gv;
   if ( !isset($plog_level) || $plog_level == 0 ) return;
-  return file_put_contents(
+  if ( $plog_level === 2 ) { echo date('r').'| '.( is_string($s) ? $s : print_r($s,TRUE)).PHP_EOL; return; }
+  return @file_put_contents(
    SITE_ROOT.'/cache/logs/'.$prefix.'-log.txt',
    date('r').'| '.( is_string($s) ? $s : print_r($s,TRUE)).PHP_EOL,
    FILE_APPEND
   );
  }
 }
+
+if ( !function_exists('deep_json_encode') ) {
+ function deep_json_encode( $a, $loose=FALSE ) {
+  if ( $loose === FALSE )
+  $o= json_encode($a, JSON_PRESERVE_ZERO_FRACTION/* | JSON_INVALID_UTF8_SUBSTITUTE in 7.2*/, 512);
+  else
+  $o= json_encode($a, JSON_PRESERVE_ZERO_FRACTION | JSON_PARTIAL_OUTPUT_ON_ERROR /* | JSON_INVALID_UTF8_SUBSTITUTE in 7.2*/, 512 );
+  $e=json_last_error();
+  switch ( $e ) {
+   case JSON_ERROR_NONE: return $o;
+   case JSON_ERROR_DEPTH: return 'JSON_ERROR_DEPTH';
+   case JSON_ERROR_STATE_MISMATCH: return 'JSON_ERROR_STATE_MISMATCH';
+   case JSON_ERROR_CTRL_CHAR: return 'JSON_ERROR_CTRL_CHAR';
+   case JSON_ERROR_SYNTAX: return 'JSON_ERROR_SYNTAX';
+   case JSON_ERROR_UTF8: return 'JSON_ERROR_UTF8';
+   case JSON_ERROR_RECURSION: return 'JSON_ERROR_RECURSION';
+   case JSON_ERROR_INF_OR_NAN: return 'JSON_ERROR_INF_OR_NAN';
+   case JSON_ERROR_UNSUPPORTED_TYPE: return 'JSON_ERROR_UNSUPPORTED_TYPE';
+   case JSON_ERROR_INVALID_PROPERTY_NAME: return 'JSON_ERROR_INVALID_PROPERTY_NAME';
+   case JSON_ERROR_UTF16: return 'JSON_ERROR_UTF16';
+  }
+ }
+}
+
+if ( !function_exists('deep_json_decode') ) {
+ function deep_json_decode( $a, $loose=FALSE ) {
+  if ( is_array($a) ) { plog("deep_json_decode received an array: ".vars($a).' Backtrace: '.vars(debug_backtrace())); return $a; }
+  if ( $loose === FALSE )
+  $o= json_decode($a, TRUE, 512, JSON_PRESERVE_ZERO_FRACTION/* | JSON_INVALID_UTF8_SUBSTITUTE in 7.2*/);
+  else
+  $o= json_decode($a, TRUE, 512, JSON_PRESERVE_ZERO_FRACTION | JSON_PARTIAL_OUTPUT_ON_ERROR /* | JSON_INVALID_UTF8_SUBSTITUTE in 7.2*/);
+  $e=json_last_error();
+  switch ( $e ) {
+   case JSON_ERROR_NONE: return $o;
+   case JSON_ERROR_DEPTH: return 'JSON_ERROR_DEPTH';
+   case JSON_ERROR_STATE_MISMATCH: return 'JSON_ERROR_STATE_MISMATCH';
+   case JSON_ERROR_CTRL_CHAR: return 'JSON_ERROR_CTRL_CHAR';
+   case JSON_ERROR_SYNTAX: return 'JSON_ERROR_SYNTAX';
+   case JSON_ERROR_UTF8: return 'JSON_ERROR_UTF8';
+   case JSON_ERROR_RECURSION: return 'JSON_ERROR_RECURSION';
+   case JSON_ERROR_INF_OR_NAN: return 'JSON_ERROR_INF_OR_NAN';
+   case JSON_ERROR_UNSUPPORTED_TYPE: return 'JSON_ERROR_UNSUPPORTED_TYPE';
+   case JSON_ERROR_INVALID_PROPERTY_NAME: return 'JSON_ERROR_INVALID_PROPERTY_NAME';
+   case JSON_ERROR_UTF16: return 'JSON_ERROR_UTF16';
+  }
+ }
+}
+
+if ( !function_exists('endsWith') ) {
+ // search forward starting from end minus needle length characters
+ function endsWith($haystack, $needle) {
+  $len=strlen($needle);
+  return matches(substr($haystack, strlen($haystack)-$len, $len), $needle);
+ }
+}
+
+
+if ( !function_exists('numtoletter') ) {
+ function numtoletter($a) {
+  if (!is_numeric($a) ) return 'NaN';
+  $final=("".$a);
+  $final=str_replace('1','A',$final);
+  $final=str_replace('2','B',$final);
+  $final=str_replace('3','C',$final);
+  $final=str_replace('4','D',$final);
+  $final=str_replace('5','E',$final);
+  $final=str_replace('6','F',$final);
+  $final=str_replace('7','G',$final);
+  $final=str_replace('8','H',$final);
+  $final=str_replace('9','I',$final);
+  $final=str_replace('0','Z',$final);
+  $final=str_replace('-','O',$final);
+  return $final;
+ }
+}
+
+if ( !function_exists("mum") ) { function mum( $val ) { return floatval($val) * 3.45; } }
+
+if ( !function_exists("is_assoc") ) {
+ function is_assoc(array $arr) {
+   if (array() === $arr) return false;
+   return array_keys($arr) !== range(0, count($arr) - 1);
+ }
+}
+
+if ( !function_exists("is_sequent") ) {
+ function is_sequent(array $arr) { return !is_assoc($arr); }
+}
+
+if ( !function_exists("array_of_arrays_to_arrays") ) {
+ // Converts an array of like-keyed arrays into "an array of arrays" keyed similarly.
+ // Actively seeks out irregularities, setting them to the default empty value.
+ // Example:  array( array("a"=>1,"b"=>2), array("a"=>3,"b"=>4) )
+ //   becomes array( "a"=>array(1,3), "b"=>array(2,4) )
+ // Returns false on failure due to input data not being correct.
+ function array_of_arrays_to_arrays( array $in, $default_empty_value=NULL ) {
+  if ( !is_array($in) ) return FALSE;
+  if ( count($in) === 0 ) return FALSE;
+  if ( !is_sequent($in) ) return FALSE;
+  $out=array();
+  foreach ( $in as $a ) foreach ( $a as $k=>$v ) if ( !isset($out[$k]) ) $out[$k]=array();
+  $keys=array_keys($out);
+  foreach ( $in as $a ) foreach ( $keys as $k ) {
+   if ( isset($a[$k]) ) $out[$k][]=$a[$k]; else $out[$k][]=$default_empty_value;
+  }
+  return $out;
+ }
+}
+
 
 if ( !function_exists('a') ) {
  function a() {
@@ -20,14 +130,14 @@ if ( !function_exists('a') ) {
 }
 
 if ( !function_exists('csv') ) {
- function csv($arr) {
+ function csv($arr,$sep='\t') {
   $out='';
   $first=array_shift($arr);
   $columns=array_keys($first);
   array_unshift($arr,$first);
-  $out='Index'."\t".implode("\t",$columns)."\n";
+  $out='Index'.$sep.implode($sep,$columns)."\n";
   foreach ( $arr as $index=>$row ) {
-   $out.=$index."\t".implode("\t",$row)."\n";
+   $out.=$index.$sep.implode($sep,$row)."\n";
   }
   return $out;
  }
@@ -41,10 +151,218 @@ if ( !function_exists('fromcsv') ) {
  }
 }
 
+
+if ( !function_exists("is_decimal_value") ) {
+ function is_decimal_value( $a ) {
+    $d=0;
+    $b= str_split($a);
+    foreach ( $b as $c ) {
+        if ( is_numeric($c) ) continue;
+        if ( stripos($c,".") === 0 ) {
+            $d++;
+            if ( $d > 1 ) return FALSE;
+            else continue;
+        } else
+        return FALSE;
+    }
+    return TRUE;
+ }
+}
+
+if ( !function_exists('is_date_string') ) {
+ function is_date_string( $date ) { 
+  if ( strtotime($date) > strtotime(0) ) return TRUE;
+  return false;
+ }
+}
+
+if ( !function_exists("biggest") ) {
+ function biggest(&$out,$in) {
+  if ( false_or_null($out) || $out < $in ) $out=$in;
+ }
+}
+
+if ( !function_exists("smallest") ) {
+ function smallest(&$out,$in) {
+  if ( false_or_null($out) || $out > $in ) $out=$in;
+ }
+}
+
+if ( !function_exists("safe_average") ) {
+ function safe_average( $a, $d ) {
+  if ( intval($d) === 0 ) return 0;
+  return ( floatval($a)/floatval($d) );
+ }
+}
+
+if ( !function_exists("percent") ) {
+ function percent( $a, $b ) {
+  $ratio=floatval($a)/floatval($b);
+  return $ratio * 100.0;
+ }
+}
+
+// Initializes a value in an array if it is unset.
 if ( !function_exists('arrinit') ) {
  function arrinit(&$arr,$index,$value='') {
   if ( !isset($arr[$index]) ) $arr[$index]=$value;
  }
+}
+
+// Averages a value across an array.
+if ( !function_exists('avgarray') ) {
+  function avgarray( $a, $key=NULL ) {
+   if ( false_or_null($key) ) {
+    $count=0;
+    $total=0.0;
+    foreach ( $a as $k=>$v ) if ( !false_or_null($v) ) { $count++; $total+=$v; }
+    if ( $count === 0 ) return 0;
+    return $count/$total;
+   } else {
+    $count=0;
+    $total=0.0;
+    foreach ( $a as $k=>$v ) if ( !false_or_null($v) && is_array($v) && isset($v[$key]) ) { $count++; $total+=$v[$key]; }
+    if ( $count === 0 ) return 0;
+    return $count/$total;
+   }
+  }
+}
+
+// Using an input array as a blueprint, generates an identical recursive structure with values zeroed.
+if ( !function_exists('zeroarray') ) {
+  function zeroarray( $in ) {
+   $out=array();
+   foreach ( $in as $k=>$v ) {
+    if ( is_array($v) ) $out[$k]=zeroarray($v);
+    else if ( is_decimal_value($v) ) $out[$k]=0.0;
+    else if ( is_integer($v) ) $out[$k]=0;
+    else $out[$k]=$v;
+   }
+   return $out;
+  }
+}
+
+// Add up structured array A and B and return the result.
+if ( !function_exists('addarray') ) {
+  function addarray( $a,$b ) {
+   foreach ( $b as $k=>$v ) {
+    if ( is_array($v) ) $a[$k]=addarray($a[$k],$v);
+    else if ( is_decimal_value($v) ) $a[$k]+=$v;
+    else if ( is_integer($v) ) $b[$k]+=$v;
+   }
+   return $a;
+  }
+}
+
+// Divide values in a structured array by a divisor (single number or matching structural array), and return it.
+if ( !function_exists('dividearray') ) {
+  function dividearray( $a,$divisor ) {
+   if ( is_array($divisor) ) {
+    foreach ( $divisor as $k=>$v ) {
+     if ( is_array($v) ) $a[$k]=dividearray($a[$k],$v);
+     else if ( is_decimal_value($v) && $v > 0.0 ) $a[$k]/=$v;
+     else if ( is_integer($v) && $v > 0.0 ) $a[$k]/=$v;
+    }
+    return $a;
+   } else {
+    $o=zeroarray($a);
+    foreach ( $a as $k=>$v ) {
+     if ( is_array($v) ) $o[$k]=dividearray($a[$k],$divisor);
+     else if ( is_decimal_value($v) && $v > 0.0 ) $o[$k]=$a[$k]/$divisor;
+     else if ( is_integer($v) && $v > 0.0 ) $o[$k]=$a[$k]/$divisor;
+     else $o[$k]=$v;
+    }
+    return $o;
+   }
+  }
+}
+
+// Find the values that are biggest and return them.
+if ( !function_exists('bigger_array') ) {
+ function bigger_array( $r, $b ) {
+  if ( is_null($r) ) return $b;
+  else foreach ( $b as $k=>$v ) {
+   if ( is_array($v) ) $r[$k]=bigger_array($r[$k],$v);
+   else if ( is_decimal_value($v) && floatval($v) > floatval($r[$k]) ) $r[$k]=$v;
+   else if ( is_numeric($v) && intval($v) > intval($r[$k]) ) $r[$k]=$v;
+  }
+  return $r;
+ }
+}
+
+// Find the biggest values across a structured array and return it.
+if ( !function_exists('biggest_in_array') ) {
+  function biggest_in_array( $a ) {
+   $r=NULL;
+   $count=0;
+   foreach ( $a as $b ) $r=bigger_array($r,$b);
+   return $r;
+  }
+}
+
+// Find the values that are smallest and return them.
+if ( !function_exists('smaller_array') ) {
+ function smaller_array( $r, $b ) {
+  if ( is_null($r) ) return $b;
+  else foreach ( $b as $k=>$v ) {
+   if ( is_array($v) ) $r[$k]=smaller_array($r[$k],$v);
+   else if ( is_decimal_value($v) && floatval($v) < floatval($r[$k]) ) $r[$k]=$v;
+   else if ( is_numeric($v) && intval($v) < intval($r[$k]) ) $r[$k]=$v;
+  }
+  return $r;
+ }
+}
+
+// Find the smallest values across a structured array and return it.
+if ( !function_exists('smallest_in_array') ) {
+  function smallest_in_array( $a ) {
+   $r=NULL;
+   $count=0;
+   foreach ( $a as $b ) $r=smaller_array($r,$b);
+   return $r;
+  }
+}
+
+
+// Add up structured arrays A...x and return the result.
+if ( !function_exists('addarrays') ) {
+  function addarrays( $arrs ) {
+   if ( !is_array($arrs) ) return $arrs;
+   if ( count($arrs) <2 ) return $arrs;
+   if ( !is_sequent($arrs) ) return $arrs;
+   $total=array_pop($arrs);
+   foreach ($arrs as $a) {
+    $total=addarray($total,$a);
+   }
+   return $total;
+  }
+}
+
+
+if (!function_exists('avgarrays') ) {
+  function avgarrays( $arrs ) {
+   $divisor=count($arrs);
+   if ( $divisor === 0 ) return FALSE;
+   return dividearray(addarrays($arrs),$divisor);
+  }
+}
+
+
+// Copy an array disallowing pointer-in-memory features of PHP
+if ( !function_exists('array_copy') ) {
+function array_copy( array $array ) {
+        $result = array();
+        foreach( $array as $key => $val ) {
+            if( is_array( $val ) ) {
+                $result[$key] = array_copy( $val );
+            } elseif ( is_object( $val ) ) {
+                $result[$key] = clone $val;
+            } else {
+                $result[$key] = $val;
+            }
+        }
+        return $result;
+}
 }
 
 if ( !function_exists('g') ) {
@@ -60,6 +378,7 @@ if ( !function_exists('g') ) {
 if ( !function_exists('vars') ) {
  function vars($a) { return var_export($a,true); }
 }
+
 
 if ( !function_exists('javascript') ) {
   function javascript($code) { return '<SCRIPT type="text/javascript">'.$code.'</SCRIPT>'; }
@@ -971,16 +1290,6 @@ if ( !function_exists('redirect') ) {
  }
 }
 
-
-if ( !function_exists('endsWith') ) {
- // search forward starting from end minus needle length characters
- function endsWith($haystack, $needle) {
-  $len=strlen($needle);
-  return matches(substr($haystack, strlen($haystack)-$len, $len), $needle);
- }
-}
-
-
 if ( !function_exists('Post') ) {
  function Post($url,$fields) {
   $fields_string="";
@@ -1430,6 +1739,7 @@ if ( !function_exists('json_post') ) {
 
 if ( !function_exists('make_path') ) {
  function make_path($pathname, $mode=0777, $is_filename=false){
+  plog("make_path($pathname,$mode$is_filename)");
   return mkdir($pathname,$mode,true);
 /*
   $pathname = str_replace(array('/', '\\'), DIRECTORY_SEPARATOR, $pathname);
@@ -1449,6 +1759,15 @@ if ( !function_exists('make_path') ) {
   }
   return FALSE;
 */
+ }
+}
+
+if ( !function_exists('remove_path') ) {
+ function remove_path($path) {
+  plog("remove_path($path)");
+  $files = glob(rtrim($path,'/') . '/*');  /**/
+  foreach ($files as $file) is_dir($file) ? remove_path($file) : unlink($file);
+  return rmdir($path);
  }
 }
 
@@ -1518,6 +1837,267 @@ if ( !function_exists('seconds_old')) {
  }
 }
 
+if ( !function_exists('href') ) {
+ function href( $url, $content ) { return '<a href="'.$url.'">'.$content.'</a>'; }
+}
+
+if ( !function_exists('is') ) {
+ function is( $a, $b ) {
+  if ( is_array($b) ) {
+   foreach ( $b as $v ) if ( is($a,$v) ) return TRUE;
+   return FALSE;
+  }
+  $a = trim($a);
+  $b = trim($b);
+  if ( strlen($a) != strlen($b)) return FALSE;
+  if ( stripos($a,$b) === 0 ) return TRUE;
+  return FALSE;
+ }
+}
+
+
 if ( !function_exists('stringval') ) {
  function stringval( $x ) { return "".$x; }
 }
+
+if ( !function_exists("RemoveKeys") ) {
+ function RemoveKeys( $in, $rem ) { // Filters unwanted tags from incoming database-modifying statements
+  $out=array();
+  foreach ( $in as $keyed=>$value ) {
+   if ( is_array($rem) ) {
+    $found=FALSE;
+    foreach($rem as $v) if ( $keyed===$v ) $found=TRUE;
+    if ( $found ) continue;
+   } else if ( $keyed === $rem ) continue;
+   $out[$keyed]=$value;
+  }
+  return $out;
+ }
+}
+
+if ( !function_exists("OnlyKeys") ) {
+ function OnlyKeys( $in, $rem ) { // Permits on a certain set of keys for database-modifying statements
+  $out=array();
+  foreach ( $in as $keyed=>$value ) {
+   if ( is_array($rem) ) {
+    $found=FALSE;
+    foreach($rem as $v) if ( $keyed!==$v ) $found=TRUE;
+    if ( !$found ) continue;
+   } else if ( $keyed !== $rem ) continue;
+   $out[$keyed]=$value;
+  }
+  return $out;
+ }
+}
+
+
+if ( !function_exists("searchArraySubstr") ) {
+ /**
+  *  @brief Searches for substring in given array of strings
+  *  @param Array[string] array to search
+  *  @param string substring to search for
+  *  @return int index of string where substring is found
+  */
+ function searchArraySubstr($array, $substring)
+ {
+  for ($i = 0; $i < count($array); $i++) {
+    if ( strpos($array[$i], $substring) !== false) {
+      return $i;
+    }
+  }
+  // Substring not in array
+  return -1;
+ }
+}
+
+
+
+if ( !function_exists('http_post') ) {
+ function http_post($url,$fields,$files=NULL) {
+  // build the urlencoded data
+  $post = $fields;
+  if ( is_array($files) ) foreach ( $files as $field=>$filename ) {
+   $post[$field]=new CURLFile($filename,mime_content_type($filename));
+  }
+  // open connection
+  $ch = curl_init();
+  // set the url, number of POST vars, POST data
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_POST, 1);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+  curl_setopt($ch, CURLOPT_SAFE_UPLOAD, 1);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+  // execute post
+  $result = print_r($post,TRUE).PHP_EOL."http_post".curl_exec($ch);
+  // close connection
+  curl_close($ch);
+  return $result;
+ }
+}
+
+
+if ( !function_exists('limit_str_to') ) {
+  function limit_str_to( $s, $lenlimit=40, $strlen=NULL ) {
+   if ( $strlen === NULL ) $strlen=strlen($s);
+   $len=$lenlimit-3;
+   if ( $strlen > $len ) $s=substr($s,0,$len).'...'.substr($s,0,-10);
+   return $s;
+  }
+}
+
+
+if ( !function_exists("GetStartOfDay") ) {
+  function GetStartOfDay( $day, $month, $year ) {
+   plog("GetStartOfDay($day,$month,$year)");
+   $d=DateTime::createFromFormat("d/m/Y H:i:s",$day.'/'.$month.'/'.$year.' 00:00:00');
+   return false_or_null($d) ? NULL : $d->getTimestamp();
+  }
+}
+
+if ( !function_exists("GetEndOfDay") ) {
+  function GetEndOfDay( $day, $month, $year ) {
+   plog("GetEndOfDay($day,$month,$year)");
+   $d=DateTime::createFromFormat("d/m/Y H:i:s",$day.'/'.$month.'/'.$year.' 23:59:59');
+   return false_or_null($d) ? NULL : $d->getTimestamp();
+  }
+}
+
+if ( !function_exists("GetDayRange") ) {
+  function GetDayRange( $day, $month, $year ) {
+   plog("GetDayRange:");
+   return array(
+    "start"=>GetStartOfDay($day,$month,$year),
+    "end"=>GetEndOfDay($day,$month,$year)
+   );
+  }
+}
+
+if ( !function_exists("DMYtoArray") ) {
+  function DMYtoArray( $dmy, $numeric=FALSE ) {
+   plog("DMYtoArray($dmy)");
+   $parts=explode("/",str_replace("-","/",$dmy));
+   if ( count($parts) != 3 ) return FALSE;
+   if ( $numeric === FALSE )
+   return array( "day"=>$parts[0], "month"=>$parts[1], "year"=>$parts[2] );
+   else
+   return $parts;
+  }
+}
+
+if ( !function_exists("DMYfromArray") ) {
+  function DMYfromArray( $arr, $numeric=FALSE ) {
+   plog("DMYfromArray(".vars($arr).")");
+   if ( $numeric === FALSE )
+   return $arr["day"].'/'.$arr["month"].'/'.$arr["year"];
+   else
+   return $arr[0].'/'.$arr[1].'/'.$arr[2];
+  }
+}
+
+if ( !function_exists("DMY") ) {
+  function DMY( $day, $month, $year ) { return $day.'/'.$month.'/'.$year; }
+}
+
+if ( !function_exists("TimestampToDMY") ) {
+  function TimestampToDMY( $ts ) {
+   $date = new DateTime();
+   $date->setTimestamp($ts);
+   $date = $date->format("d/m/Y");
+   $parts = explode("/",$date);
+   return array( "day"=>intval($parts[0]), "month"=>intval($parts[1]), "year"=>intval($parts[2]) );
+  }
+}
+
+if ( !function_exists("DMYToTimestamp") ) {
+  function DMYToTimestamp( $day,$month,$year ) {
+   return GetStartOfDay($day,$month,$year);
+  }
+}
+
+if ( !function_exists("GetStartOfWeek") ) {
+ function GetStartOfWeek( $ts, $start="Sunday" ) {
+  $date = new DateTime();
+  $date->setTimestamp($ts);
+  $then=$date->format("w");
+  if ( ($then == 0 && is($start,"Sunday"))
+    || ($then == 1 && is($start,"Monday")) ) $dmy=TimestampToDMY($ts);
+  else {
+   $then=strtotime("last $start",$ts);
+   $dmy=TimestampToDMY($then);
+  }
+  return GetStartOfDay($dmy["day"],$dmy["month"],$dmy["year"]);
+ }
+}
+
+if ( !function_exists("GetEndOfWeek") ) {
+ function GetEndOfWeek($ts,$start="Sunday") { return GetStartOfWeek($ts,$start) + 604800 - 1; }
+}
+
+if ( !function_exists("GetWeekRange") ) {
+  function GetWeekRange( $day, $month, $year ) {
+   plog("GetWeekRange:");
+   return array(
+    "start"=>GetStartOfWeek(DMYToTimestamp($day,$month,$year)),
+    "end"=>GetEndOfWeek(DMYToTimestamp($day,$month,$year))
+   );
+  }
+}
+
+if ( !function_exists("GetStartOfMonth") ) {
+ function GetStartOfMonth($ts) {
+  $date = new DateTime();
+  $date->setTimestamp($ts);
+  $month=intval($date->format("m"));
+  $year=intval($date->format("Y"));
+  return GetStartOfDay(1,$month,$year);
+ }
+}
+
+if ( !function_exists("GetEndOfMonth") ) {
+ function GetEndOfMonth($ts) {
+  $date = new DateTime();
+  $date->setTimestamp($ts);
+  $month=intval($date->format("m"));
+  $year=intval($date->format("Y"));
+  switch ( $month ) {
+   case 9: case 4: case 6: case 11: $ending=30; break;
+   default: $ending=31; break;
+   case 12: if ($year%4==0) $ending=29; else $ending=28; break;
+  }
+  return GetEndOfDay($ending,$month,$year);
+ }
+}
+
+if ( !function_exists("GetMonthRange") ) {
+  function GetMonthRange( $day, $month, $year ) {
+   plog("GetMonthRange:");
+   return array(
+    "start"=>GetStartOfMonth(DMYToTimestamp($day,$month,$year)),
+    "end"=>GetEndOfMonth(DMYToTimestamp($day,$month,$year))
+   );
+  }
+}
+
+// geometry etc
+
+if ( !function_exists("squared") ) {
+ function squared($a) { return $a*$a; }
+}
+
+if ( !function_exists("cubed") ) {
+ function cubed($a) { return $a*$a*$a; }
+}
+
+if ( !function_exists("circle_area") ) {
+ function circle_area( $radius ) {
+  return 2.0*pi()*squared($radius);
+ }
+}
+
+if ( !function_exists("sphere_volume") ) {
+ function sphere_volume( $radius ) {
+  return (4.0/3.0)*pi()*cubed($radius);
+ }
+}
+
