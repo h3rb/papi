@@ -36,7 +36,25 @@ function myErrorHandler($errno, $errstr, $errfile, $errline)
      case E_ALL: $error_type_name='ALL ERRORS'; break;
     }
 
-    $out.=$error_type_name.": [$errno] $errstr, $errfile line $errline";
+    $btrace=debug_backtrace();
+    $trace="";
+    foreach ( $btrace as $idx=>&$item ) {
+     $line='['.$idx.'] <=> ';
+     foreach ( $item as $k=>&$v ) {
+      if ( is($k,'args') ) {
+       if ( is_object($v) ) $va=get_class($v);
+       $va= is_numeric($v) ? $v : is_array($v) ? "Array" : limit_str_to(vars($v),200,$len);
+      } else if ( is_object($v) ) $va=get_class($v);
+      else $va=limit_str_to($v.'',500,strlen($v));
+      $line.=" $k: [$va] | ";
+     }
+     $line.=' <=> '.$idx;
+     $line=limit_str_to($line,500,strlen($line)).PHP_EOL;
+     $trace.=$line;
+     $item=NULL; // to decrease memory?
+    }
+
+    $out.=$error_type_name.": [$errno] $errstr, $errfile line $errline,".PHP_EOL."Error BACKTRACE: ".$trace.' --end of stack backtrace'.PHP_EOL;
     plog('ErrorHandler: '.$out);
 
     return false; //true;    /* Don't execute PHP internal error handler */
