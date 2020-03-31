@@ -75,7 +75,7 @@ class Database extends PDO {
   } else return FALSE;
  }
  
- // Get desired fields from a table
+ // Get desired columns from a table
  function Fields($table, $filter=false) {
   switch ( $this->driver_code ) {
    case -1: return array( 'error'=>1 );
@@ -94,11 +94,11 @@ class Database extends PDO {
   }
   $this->result = $this->Run($query);
   if ( $this->result !== false ) {
-   $fields = array();
-   foreach($this->result as $record) $fields[] = $record[$key];
+   $columns = array();
+   foreach($this->result as $record) $columns[] = $record[$key];
    if ( $filter !== false )
-    return array_values(array_intersect($fields, array_keys($filter)));
-   else return $fields;
+    return array_values(array_intersect($columns, array_keys($filter)));
+   else return $columns;
   }
   return array();
  }
@@ -130,12 +130,17 @@ class Database extends PDO {
  public function Insert($table, $data) {
   plog('db->Insert: table='.$table.', $data='.vars($data));
   $query = "INSERT INTO " . $table
-     . " (" . $this->implode_fields($fields=array_keys($data))
-     . ") VALUES (:" . $this->implode_values($fields) . ");";
+     . " (" . $this->implode_fields($columns=array_keys($data))
+     . ") VALUES (:" . $this->implode_values($columns) . ");";
   $prepared = array();
-  foreach($fields as $field) $prepared[":$field"] = $data[$field];
+  foreach($columns as $field) $prepared[":$field"] = $data[$field];
   $this->result=$this->Run($query, $prepared);
   plog("Prepared: ".str_replace("\n","",vars($prepared)));
+  if ( !$this->result ) {
+   $last_err=$this->errors[count($this->errors)-1];
+   plog("INSERT errors: ".vars($last_err));
+   plog("Latest QUERY was: ".vars($this->query));
+  }
   return $this->lastInsertId();
  }
 
@@ -161,9 +166,10 @@ class Database extends PDO {
   }
  }
 
- public function Where( $array ) {
+ public function Where( $array, $include_where=TRUE ) {
   if ( count($array) === 0 ) return '';
-  $clause=' WHERE ';
+  if ( $include_where === TRUE ) $clause=' WHERE ';
+  else $clause='';
   $i=0;
   foreach ( $array as $k=>$v ) {
    $clause.=($i!=0 ? ' AND ' : '') . $k . '=' . $this->quote($v);
@@ -172,32 +178,70 @@ class Database extends PDO {
   return $clause;
  }
 
- public function SelectWhereBetween($where, $table, $field, $low, $high, $order_by='', $limit='' ) {
+ public function Latest( $table, $where, $prepared="", $columns="*" ) {
+  $results = $this->Select($table, $where, $prepared, $columns, "ORDER BY ID DESC" );
+  if ( false_or_null($results) ) return FALSE;
+  if ( is_array($results) && count($results) > 0 && is_sequent($results) ) return array_pop($results);
+  return FALSE;
+ }
+
+ public function SelectGroup( $table, $id_array, $prepared="", $columns="*", $order_by='', $limit='' ) {
+  $where="";
+  $count=count($id_array);
+  if ( !is_sequent($id_array) ) return FALSE;
+  if ( $count === 0 ) return array();
+  $i=0;
+  foreach ( $id_array as $id ) {
+   $where.='($table.ID=$id)'.($i<$count ? " OR " : "");
+   $i++;
+  }
+  return $this->Select( $table, $where, $prepared, $columns, $order_by, $limit );
+ }
+
+ public function SelectBetweenEqual($table, $field, $low, $high, $columns='*', $order_by='', $limit='' ) {
+  return $this->Select(
+    $table,
+    (' ( ('.$field.' >= '.$low.') AND ('.$field.' <= '.$high.') ' ),
+    '',$columns,$order_by,$limit);
+ }
+
+ public function SelectBetween($table, $field, $low, $high, $columns='*', $order_by='', $limit='' ) {
+  return $this->Select(
+    $table,
+    (' ( ('.$field.' > '.$low.') AND ('.$field.' < '.$high.') ) ' ),
+    '',$columns,$order_by,$limit);
+ }
+
+ public function SelectWhereBetweenEqual($table, $field, $low, $high, $where_clause='', $columns='*', $order_by='', $limit='' ) {
+  if ( is_array($where_clause) ) $where=Database::Where($where_clause,FALSE);
+  else if(!empty($where_clause)) $where=$where_clause;
   return $this->Select(
     $table,
     (' ( ('.$field.' >= '.$low.') AND ('.$field.' <= '.$high.') AND ('.$where.') ) ' ),
-    '','*',$order_by,$limit);
+    '',$columns,$order_by,$limit);
  }
 
- public function SelectBetween($table, $field, $low, $high, $order_by='', $limit='' ) {
+ public function SelectWhereBetween($table, $field, $low, $high, $where_clause='', $columns='*', $order_by='', $limit='' ) {
+  if ( is_array($where_clause) ) $where=Database::Where($where_clause,FALSE);
+  else if(!empty($where_clause)) $where=$where_clause;
   return $this->Select(
     $table,
-    (' ( ('.$field.' >= '.$low.') AND ('.$field.' <= '.$high.') ) ' ),
-    '','*',$order_by,$limit);
+    (' ( ('.$field.' > '.$low.') AND ('.$field.' < '.$high.') AND ('.$where.') ) ' ),
+    '',$columns,$order_by,$limit);
  }
 
- public function Select($table, $where_clause="", $prepared="", $fields="*", $order_by='', $limit='') {
-  $query = "SELECT " . $fields . " FROM " . $table;
+ public function Select($table, $where_clause="", $prepared="", $columns="*", $order_by='', $limit='') {
+  $query = "SELECT " . $columns . " FROM " . $table;
   if ( is_array($where_clause) ) $query.=Database::Where($where_clause);
   else if(!empty($where_clause)) $query .= " WHERE " . $where_clause;
   $query .= (strlen($order_by)>0?(' ' . $order_by):'');
-  if ( strlen(trim($limit)) > 0 ) $query .= ' LIMIT '.$limit;
+  if ( is_numeric($limit) && intval($limit>0) || strlen(trim($limit)) > 0 ) $query .= ' LIMIT '.$limit;
   $query .= ";";
   $this->result = $this->Run($query, $prepared);
   return $this->result;
  }
- public function SelectOR($table, $where_clause="", $prepared="", $fields="*") {
-  $query = "SELECT " . $fields . " FROM " . $table;
+ public function SelectOR($table, $where_clause="", $prepared="", $columns="*") {
+  $query = "SELECT " . $columns . " FROM " . $table;
   if ( is_array($where_clause) ) $query.=Database::Where($where_clause);
   else if(!empty($where_clause)) $query .= " WHERE " . $where_clause;
   $query .= ";";
@@ -254,8 +298,8 @@ class Database extends PDO {
    return false;
   }
  }
- public function Count($table, $where_clause="", $prepared="", $fields="count(*)" ) {
-  $query = "SELECT " . $fields . " FROM " . $table;
+ public function Count($table, $where_clause="", $prepared="", $columns="count(*)" ) {
+  $query = "SELECT " . $columns . " FROM " . $table;
   if ( is_array($where_clause) ) $query.=Database::Where($where_clause);
   else if(!empty($where_clause)) $query .= " WHERE " . $where_clause;
   $query .= ";";
@@ -269,17 +313,17 @@ class Database extends PDO {
  }
 
  public function Update($table, $data, $where_clause, $prepared="") {
-  $fields = array_keys($data);
-  $size = count($fields);
+  $columns = array_keys($data);
+  $size = count($columns);
   $query = "UPDATE " . $table . " SET ";
   for ( $f = 0; $f < $size; ++$f) {
    if($f > 0) $query .= ", ";
-   $query .= $fields[$f] . " = :update_" . $fields[$f];
+   $query .= $columns[$f] . " = :update_" . $columns[$f];
   }
   if ( is_array($where_clause) ) $query.=Database::Where($where_clause);
   else if(!empty($where_clause)) $query .= " WHERE " . $where_clause;
   $prepared = $this->Clean($prepared);
-  foreach ($fields as $field) $prepared[":update_$field"] = $data[$field];
+  foreach ($columns as $field) $prepared[":update_$field"] = $data[$field];
   $this->result = $this->Run($query, $prepared);
   plog("Prepared: ".str_replace("\n","",vars($prepared)));
   return $this->result;
