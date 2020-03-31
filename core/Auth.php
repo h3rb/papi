@@ -14,14 +14,12 @@
 
  global $auth_database;
  try {
- try {
  $auth_database=new Database(
   AUTH_DB_DSN,
   AUTH_DB_USER,
   AUTH_DB_PASS
  );
- } catch (PDOException $e) { plog($e); echo '{"error":"Database not available"}'; die; }
- } catch (Exception $x) { plog($x); echo '{"error":"Database not connected."}'; die; }
+ } catch (Exception $e) { plog($e); }
 
  plog('$auth_database: '.vars($auth_database));
 
@@ -30,10 +28,10 @@ global $database;
 $database=$auth_database;
 
  global $auth_model;    $auth_model=new Auth($auth_database);
+ global $session_model; $session_model=new Session($auth_database);
 
  global $auth;          $auth=NULL;
  global $session;       $session=NULL;
- global $session_id;    $session_id=-1;
  global $user;          $user=NULL;
 
  global $domain;        $domain=NULL;
