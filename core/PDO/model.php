@@ -15,6 +15,7 @@ class Reference {
   $this->db=$db;
   $this->key=key;
   $this->ID=$ID;
+  $this->source_table = $source_table;
  }
  public function Get() {
   $this->data=$this->db->Select( $ID );
@@ -100,28 +101,45 @@ class Model {
   return $this->db->Join($values,$tableA,$tableB,$order_by,$columns,$limit,$offset,$where,$type,$on_or_using); 
  } 
 
- public function Select( $where_clause=NULL, $fields="*", $prepared="", $order_by='', $limit='' ) {
-  return $this->db->Select($this->table, $where_clause, $prepared, $fields, $order_by, $limit );
+ public function Select( $where_clause=NULL, $columns="*", $prepared="", $order_by='', $limit='' ) {
+  return $this->db->Select($this->table, $where_clause, $prepared, $columns, $order_by, $limit );
  }
 
- public function Range( $start, $limit=1000, $fields='*', $orderby='' ) {
-  return $this->db->Run('SELECT '.$fields.' FROM '.$this->table.' '.$orderby.' LIMIT '.$start.','.$limit.';' );
+ public function Range( $start, $limit=1000, $columns='*', $orderby='' ) {
+  return $this->db->Run('SELECT '.$columns.' FROM '.$this->table.' '.$orderby.' LIMIT '.$start.','.$limit.';' );
  }
 
- public function Between( $test_field_numeric, $a, $b, $fields='*' ) { // Inclusive
-  return $this->db->Run('SELECT '.$fields.' FROM '.$this->table
+ public function Between( $test_field_numeric, $a, $b, $columns='*' ) { // Inclusive
+  return $this->db->Run('SELECT '.$columns.' FROM '.$this->table
    .' WHERE ('.$test_field_numeric.' <= '.$a.' '.' AND '.$test_field_numeric.' >= '.$b.') '
    .' LIMIT '.$start.','.$limit.';'
   );
  }
 
- public function SelectBetween( $field="*", $prepared='', $order_by='', $limit='' ) {
-  return $this->db->SelectBetween( $this->table, $field, $prepared, $order_by, $limit );
+ public function Latest( $where, $columns='*', $prepared='' ) {
+  return $this->db->Latest( $this->table, $where, $prepared, $columns );
  }
 
- public function SelectWhereBetween( $where, $field="*", $prepared='', $order_by='', $limit='' ) {
-  return $this->db->SelectWhereBetween( $where, $this->table, $field, $prepared, $order_by, $limit );
+ public function SelectBetweenEqual($field, $low, $high, $columns='*', $order_by='', $limit='' ) {
+  return $this->db->SelectBetweenEqual($this->table,$field,$low,$high,$columns,$order_by,$limit);
  }
+
+ public function SelectBetween( $field, $low, $high, $columns='*', $order_by='', $limit='' ) {
+  return $this->db->SelectBetween($this->table,$field,$low,$high,$columns,$order_by,$limit);
+ }
+
+ public function SelectWhereBetweenEqual( $field, $low, $high, $where_clause='', $columns='*', $order_by='', $limit='') {
+  return $this->db->SelectWhereBetweenEqual($this->table,$field,$low,$high,$where_clause,$columns,$order_by,$limit);
+ }
+
+ public function SelectWhereBetween( $field, $low, $high, $where_clause='', $columns='*', $order_by='', $limit='') {
+  return $this->db->SelectWhereBetween($this->table,$field,$low,$high,$where_clause,$columns,$order_by,$limit);
+ }
+
+ public function SelectGroup( $id_array, $columns='*', $prepared='', $order_by='', $limit='' ) {
+  return $this->db->SelectGroup( $this->table, $id_array, $prepared, $columns, $order_by, $limit );
+ }
+
 
  public function By( $field, $value, $order_by='', $prepared='' ) {
   $this->result = $this->Select( array( $field => $value ), "*", $prepared, $order_by );
@@ -129,12 +147,12 @@ class Model {
   return $this->result;
  }
 
- public function First( $field, $value=NULL, $order_by='' ) {
-  if ( $value === NULL ) $this->result = $this->Select($field, "*", '', $order_by.' LIMIT 1');
-  else $this->result = $this->Select( array( $field => $value ), "*", '', $order_by.' LIMIT 1' );
-  if ( false_or_null($this->result) ) $this->result=array();
-  if ( is_array($this->result) && count($this->result) >= 1 ) $this->result=array_pop($this->result);
-  return count($this->result) === 0 ? NULL : $this->result;
+ public function First( $field, $value='', $order_by='' ) {
+  if ( is_array($field) ) $this->result = $this->Select( $field, "*", '', $value,  1 );
+  else $this->result = $this->Select( array( $field => $value ), "*", '', $order_by, 1 );
+  if ( !false_or_null($this->result) && is_array($this->result) && count($this->result) > 0
+    && is_sequent($this->result) ) $this->result=array_pop($this->result);
+  return $this->result;
  }
 
  public function All($order_by_limit='') {
@@ -160,7 +178,7 @@ class Model {
  }
 
  public function Set( $ID, $data ) {
-  return $this->Update($data, array('ID'=>$ID));
+  return $this->Update($data, "ID = '$ID'");
  }
 
  // Must Get() first
@@ -191,7 +209,6 @@ class Model {
    }
   }
  }
-
 
  public function Update( $data, $where_clause, $prepared="" ) {
   if ( !is_array($data) ) {
