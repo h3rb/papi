@@ -1,7 +1,7 @@
 <?php // Table: AppSettings
 
  class AppSettings extends Model {
-  public function Latest() {
+  public function MostRecent() {
    $settings=$this->Select(' ORDER BY ID LIMIT 1 DESC');
    if ( false_or_null($settings) ) { // Defaults
     return array(
